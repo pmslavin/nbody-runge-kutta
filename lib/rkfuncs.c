@@ -9,10 +9,15 @@
 
 
 double G = 6.67408313131313e-11;  // Default G, overwrite in funcs
-PyObject *xa, *ya, *vxa, *vya, *ma = NULL;
+/* Body instance attrs */
+PyObject *xattr  = NULL;
+PyObject *yattr  = NULL;
+PyObject *vxattr = NULL;
+PyObject *vyattr = NULL;
+PyObject *mattr  = NULL;
 
 
-static PyObject *gravity_first_order_py(PyObject *self, PyObject *bodies){
+static PyObject *gravity_first_order_py(/* Unused */PyObject *self, PyObject *bodies){
     /*
      *  System of first-order ODEs representing gravitation.
      *
@@ -20,6 +25,7 @@ static PyObject *gravity_first_order_py(PyObject *self, PyObject *bodies){
      *    - Returns a 4-tuple of length N arrays comprising (dv_x, dv_y, vx, vy)
      *
      */
+    (void)self;  // Unused
     PyObject *lhs = NULL, *lhs_x = NULL, *lhs_y = NULL, *lhs_vx = NULL, *lhs_vy = NULL;
     PyObject *rhs = NULL, *rhs_x = NULL, *rhs_y = NULL;
     PyObject *dv_x = NULL, *dv_y = NULL, *vxr = NULL, *vyr = NULL;
@@ -37,22 +43,44 @@ static PyObject *gravity_first_order_py(PyObject *self, PyObject *bodies){
     vxr = PyList_New(len);
     vyr = PyList_New(len);
 
+    /*  Lookup G from enclosing scope, falling back to above default.
+     *  This is typically fixed per model (e.g. Chencimer & Montgomery requires G=1)
+     *  but lookup here allows G to vary with iteration.
+     */
     PyObject *g_dict = PyEval_GetGlobals();
     PyObject *G_ref = PyDict_GetItemString(g_dict, "G");
-    G = PyFloat_AsDouble(G_ref);
+    if(G_ref){
+        double _G = PyFloat_AsDouble(G_ref);
+        if(_G == -1.0){
+            PyErr_Clear();
+            PyErr_WarnEx(PyExc_UserWarning,
+                "Invalid value of 'G' defined in calling scope, "
+                "falling back to Gravitational constant.",
+                1 /* stack lev */
+            );
+        }else{
+            G = _G;
+        }
+    }else{
+        PyErr_WarnEx(PyExc_UserWarning,
+            "No value of 'G' defined in calling scope, "
+            "falling back to Gravitational constant.",
+            1 /* stack lev */
+        );
+    }
 
     for(Py_ssize_t i=0; i<len; i++){
         double ret_dv_x = 0.0;
         double ret_dv_y = 0.0;
 
         lhs = PySequence_GetItem(bodies, i);
-        lhs_vx = PyObject_GetAttr(lhs, vxa);
-        lhs_vy = PyObject_GetAttr(lhs, vya);
+        lhs_vx = PyObject_GetAttr(lhs, vxattr);
+        lhs_vy = PyObject_GetAttr(lhs, vyattr);
         PyList_SetItem(vxr, i, lhs_vx);
         PyList_SetItem(vyr, i, lhs_vy);
 
-        lhs_x = PyObject_GetAttr(lhs, xa);
-        lhs_y = PyObject_GetAttr(lhs, ya);
+        lhs_x = PyObject_GetAttr(lhs, xattr);
+        lhs_y = PyObject_GetAttr(lhs, yattr);
         double lx = PyFloat_AsDouble(lhs_x);
         double ly = PyFloat_AsDouble(lhs_y);
         Py_DECREF(lhs_x);
@@ -63,12 +91,12 @@ static PyObject *gravity_first_order_py(PyObject *self, PyObject *bodies){
                 continue;
             }
             rhs = PySequence_GetItem(bodies, j);
-            PyObject *mp = PyObject_GetAttr(rhs, ma);
+            PyObject *mp = PyObject_GetAttr(rhs, mattr);
             double m = PyFloat_AsDouble(mp);
             double GM = -G*m;
 
-            rhs_x = PyObject_GetAttr(rhs, xa);
-            rhs_y = PyObject_GetAttr(rhs, ya);
+            rhs_x = PyObject_GetAttr(rhs, xattr);
+            rhs_y = PyObject_GetAttr(rhs, yattr);
             double rx = PyFloat_AsDouble(rhs_x);
             double ry = PyFloat_AsDouble(rhs_y);
 
@@ -123,18 +151,12 @@ static struct PyModuleDef rkfuncs_module_def = {
 PyMODINIT_FUNC PyInit_rkfuncs(void){
     Py_Initialize();
 
-    // Body instance attributes
-    xa = Py_BuildValue("s", "x");
-    ya = Py_BuildValue("s", "y");
-    vxa = Py_BuildValue("s", "vx");
-    vya = Py_BuildValue("s", "vy");
-    ma = Py_BuildValue("s", "M");
-
-    /*
-    PyObject *main = PyImport_AddModule("__main__");
-    PyObject *G_ref = PyObject_GetAttrString(main, "G");
-    G = PyFloat_AsDouble(G_ref);
-    */
+    /* Body instance attributes */
+    xattr  = Py_BuildValue("s", "x");
+    yattr  = Py_BuildValue("s", "y");
+    vxattr = Py_BuildValue("s", "vx");
+    vyattr = Py_BuildValue("s", "vy");
+    mattr  = Py_BuildValue("s", "M");
 
     return PyModule_Create(&rkfuncs_module_def);
 }
