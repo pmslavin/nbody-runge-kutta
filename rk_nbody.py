@@ -8,20 +8,19 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
+import rkfuncs
+
 bodies = []
 points = []
 
 
 class Body():
     def __init__(self, M, x, y, vx=0.0, vy=0.0):
-        self.M = M
+        self.M = float(M)
         self.x = float(x)
         self.y = float(y)
         self.vx = float(vx)
         self.vy = float(vy)
-
-    def distance(self, rhs):
-        return math.sqrt((rhs.x - self.x)**2 + (rhs.y - self.y)**2)
 
     def __str__(self):
         return f"M: {self.M:8g} ({self.x:12.9f}, {self.y:12.9f}) v_x: {self.vx:10.8f}, v_y: {self.vy:10.8f}"
@@ -45,12 +44,14 @@ def f1(bodies):
             rdiff_x = lhs.x - rhs.x
             rdiff_y = lhs.y - rhs.y
 
-            rcubed = lhs.distance(rhs)**3
+            rcubed = ((rhs.x - lhs.x)**2 + (rhs.y - lhs.y)**2)**(3/2)
 
             dv_x[i0] += GM*rdiff_x/rcubed
             dv_y[i0] += GM*rdiff_y/rcubed
 
     return dv_x, dv_y, vx, vy
+
+f1 = rkfuncs.gravity_first_order
 
 
 def make_increment_args(bodies, dv_x, dv_y, vx, vy, h):
@@ -81,7 +82,7 @@ def plot_animated(points, ax_scale, footnote, write_mp4=False):
         return sct
 
     def make_colours(count):
-        colours = mcolors.TABLEAU_COLORS
+        colours = mcolors.XKCD_COLORS
         cyc = []
         idx = 0
         for c in itertools.cycle(colours):
@@ -105,7 +106,7 @@ def plot_animated(points, ax_scale, footnote, write_mp4=False):
     sct = plt.scatter(init_x, init_y, c=colours)
 
     fps = 60
-    frame_args = {}
+    frame_args = {"cache_frame_data": False}
     if write_mp4:
         frame_args["frames"] = len(points)
 
@@ -134,14 +135,14 @@ bodies.append(Body(M_e, 0, 0))
 bodies.append(Body(M_m, 0, dist_em, -31410, 0))
 
 # Asteroid chaos...
-#for i in range(50):
-#    bodies.append(Body(random.random()*1e8, random.gauss(-2.5e5, 2.5e5), random.gauss(-2.5e5, 2.5e5),
-#                       random.uniform(-1,1)*1e5, random.uniform(-1,1)*1e5))
+for i in range(50):
+    bodies.append(Body(random.random()*1e8, random.gauss(-2.5e5, 2.5e5), random.gauss(-2.5e5, 2.5e5),
+                       random.uniform(-1,1)*1e5, random.uniform(-1,1)*1e5))
 
 G = 6.67408313131313e-11   # N.m^2/Kg^2
 h = 0.002
 t = 0
-t_f = 100
+t_f = 60
 ax_scale = ((-4e5, 4e5), (-4e5, 4e5))
 """
 """
@@ -158,7 +159,7 @@ bodies.append(Body(1.0, 0.97000436, -0.24208753, 0.4662036850, 0.4323657300))
 G = 1
 h = 0.002
 t = 0
-t_f = 100
+t_f = 6.32591398*6
 ax_scale = ((-2.0, 2.0), (-1.5, 1.5))
 
 print('\033[?25l', end="")
@@ -195,6 +196,9 @@ while t < t_f:
         t_h, t_h_s = divmod(t1-t0, 3600)
         t_m, t_s = divmod(t_h_s, 60)
         steps = int(t_f/h)
+        if step > steps-10:
+            # Round up last print
+            step = steps
         sw = int(math.log10(steps)+1)
         print(f"\rstep: {step:>{sw}}/{steps:>{sw}}  {100*step/steps:4.2f}%  "
                 f"{t_h:02.0f}:{t_m:02.0f}:{t_s:02.0f}  ", end='')
