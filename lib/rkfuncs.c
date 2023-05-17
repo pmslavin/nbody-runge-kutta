@@ -7,6 +7,7 @@
 #include <Python.h>
 #include <math.h>
 
+#define __version__ "0.2.0"
 
 double G = 6.67408313131313e-11;  // Default G, overwrite in funcs
 /* Body instance attrs */
@@ -137,7 +138,7 @@ static char gravity_first_order_doc[] =
 static PyMethodDef rkfuncs_module_methods[] = {
     {"gravity_first_order", (PyCFunction)gravity_first_order_py,
      METH_O, gravity_first_order_doc},
-    {NULL, NULL, 0, NULL}
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 static struct PyModuleDef rkfuncs_module_def = {
@@ -158,5 +159,7 @@ PyMODINIT_FUNC PyInit_rkfuncs(void){
     vyattr = Py_BuildValue("s", "vy");
     mattr  = Py_BuildValue("s", "M");
 
-    return PyModule_Create(&rkfuncs_module_def);
+    PyObject *mod = PyModule_Create(&rkfuncs_module_def);
+    PyModule_AddStringMacro(mod, __version__);
+    return mod;
 }

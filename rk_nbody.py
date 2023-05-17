@@ -5,10 +5,11 @@ import atexit
 import math
 import random
 import time
+import warnings
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-import rkfuncs
+# Note compiled extension import below
 
 bodies = []
 points = []
@@ -51,7 +52,14 @@ def f1(bodies):
 
     return dv_x, dv_y, vx, vy
 
-f1 = rkfuncs.gravity_first_order
+try:
+    import rkfuncs
+    f1 = rkfuncs.gravity_first_order
+except (ModuleNotFoundError, ImportError):
+    warnings.simplefilter("default", ImportWarning)
+    warnings.warn("Unable to import compiled library rkfuncs, "
+                  "falling back to Python functions.",
+                  ImportWarning, stacklevel=2)
 
 
 def make_increment_args(bodies, dv_x, dv_y, vx, vy, h):
@@ -135,9 +143,9 @@ bodies.append(Body(M_e, 0, 0))
 bodies.append(Body(M_m, 0, dist_em, -31410, 0))
 
 # Asteroid chaos...
-for i in range(50):
-    bodies.append(Body(random.random()*1e8, random.gauss(-2.5e5, 2.5e5), random.gauss(-2.5e5, 2.5e5),
-                       random.uniform(-1,1)*1e5, random.uniform(-1,1)*1e5))
+#for i in range(50):
+#    bodies.append(Body(random.random()*1e8, random.gauss(-2.5e5, 2.5e5), random.gauss(-2.5e5, 2.5e5),
+#                       random.uniform(-1,1)*1e5, random.uniform(-1,1)*1e5))
 
 G = 6.67408313131313e-11   # N.m^2/Kg^2
 h = 0.002
